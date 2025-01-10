@@ -1,10 +1,10 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
-from scraper import WebsiteScraper
-from analyzer import ContentAnalyzer
-from adv_analyzer import ADVAnalyzer
-from fund_matcher import LLMFundMatcher
+from assetmanagementanalyst.scraper import WebsiteScraper
+from assetmanagementanalyst.analyzer import ContentAnalyzer
+from assetmanagementanalyst.adv_analyzer import ADVAnalyzer
+from assetmanagementanalyst.fund_matcher import LLMFundMatcher
 import logging
 
 # Load environment variables

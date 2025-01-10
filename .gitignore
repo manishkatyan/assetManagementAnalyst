@@ -3,3 +3,10 @@
 .DS_Store
 .venv
 */.env
+assetmanagementanalyst/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.py    
