@@ -1,5 +1,5 @@
 .env
-.streamlit
+.streamlit/
 .DS_Store
 .venv
 */.env
@@ -8,5 +8,4 @@ assetmanagementanalyst/__pycache__/
 *.pyo
 *.pyd
 *.pyw
-*.pyz
-*.py    
+*.pyz   
