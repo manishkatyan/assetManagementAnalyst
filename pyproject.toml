@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "assetmanagementanalyst"
+version = "0.1.0"
+description = "Asset Management Analyst"
+authors = ["Manish Katyan <manishkatyan@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+streamlit = "^1.32.0"
+beautifulsoup4 = "^4.12.0"
+requests = "^2.31.0"
+langchain = "^0.1.0"
+langchain-openai = "^0.0.5"  # Add this line
+openai = "^1.12.0"
+python-dotenv = "^1.0.0"
+pandas = "^2.2.0"
+watchdog = "^3.0.0"  # Add this for better performance
+PyPDF2 = "^3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+black = "^24.1.0"
+flake8 = "^7.0.0"
+
+[tool.poetry.scripts]
+start = "assetmanagementanalyst.launcher:start"
+dev = "assetmanagementanalyst.launcher:dev"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
