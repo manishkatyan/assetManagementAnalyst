@@ -18,6 +18,28 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+def get_openai_api_key() -> str:
+    """Get OpenAI API key from .env locally or secrets in Streamlit Cloud."""
+    # Local development: Get from .env
+    api_key = os.getenv('OPENAI_API_KEY')
+    if api_key:
+        return api_key
+    
+    # Streamlit Cloud: Get from secrets
+    try:
+        return st.secrets['OPENAI_API_KEY']
+    except:
+        st.error("""
+        OpenAI API key not found! Please set it up:
+        
+        Local Development:
+        - Add OPENAI_API_KEY to your .env file
+        
+        Streamlit Cloud:
+        - Add OPENAI_API_KEY in your app secrets
+        """)
+        st.stop()
+
 def init_session_state():
     if 'analyses' not in st.session_state:
         st.session_state.analyses = {}
@@ -215,10 +237,12 @@ def main():
     init_session_state()
     
     st.title("Advanced AI Analyst to Analyze RIA and Suggest Mutual Funds")
+
+    api_key = get_openai_api_key()
     
     # Initialize components
     scraper = WebsiteScraper()
-    analyzer = ContentAnalyzer(os.getenv('OPENAI_API_KEY'))
+    analyzer = ContentAnalyzer(api_key)
     
     # Sidebar
     with st.sidebar:
@@ -281,18 +305,15 @@ def main():
     if analyze_adv_button and adv_url:
         with st.spinner("Analyzing ADV filing..."):
             try:
-                api_key = os.getenv('OPENAI_API_KEY')
-                if not api_key:
-                    st.error("OpenAI API key not found!")
-                else:
-                    adv_analyzer = ADVAnalyzer(api_key)
-                    adv_content = adv_analyzer.analyze_adv(adv_url)
+                adv_analyzer = ADVAnalyzer(api_key)
+                adv_content = adv_analyzer.analyze_adv(adv_url)
                     
-                    if adv_content:
-                        st.session_state.adv_analyses[adv_url] = adv_content
-                        display_adv_analysis(adv_content)
-                    else:
-                        st.error("Failed to analyze ADV filing - please check the URL format")
+                if adv_content:
+                    st.session_state.adv_analyses[adv_url] = adv_content
+                    display_adv_analysis(adv_content)
+                else:
+                    st.error("Failed to analyze ADV filing - please check the URL format")
+                    
             except Exception as e:
                 st.error(f"Error during ADV analysis: {str(e)}")
                 logger.error(f"Error during ADV analysis: {e}")
@@ -320,7 +341,7 @@ def main():
                 
                 # Get fund matches
                 with st.spinner("Analyzing mutual fund matches..."):
-                    fund_matcher = LLMFundMatcher(os.getenv('OPENAI_API_KEY'))
+                    fund_matcher = LLMFundMatcher(api_key)
                     matches = fund_matcher.analyze_matches(ria_data)
                     st.session_state.fund_matches = matches
                 
