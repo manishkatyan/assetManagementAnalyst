@@ -1,0 +1,5 @@
+.env
+.streamlit
+.DS_Store
+.venv
+*/.env
