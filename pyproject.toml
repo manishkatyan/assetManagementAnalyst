@@ -17,6 +17,8 @@ python-dotenv = "^1.0.0"
 pandas = "^2.2.0"
 watchdog = "^3.0.0"  # Add this for better performance
 PyPDF2 = "^3.0.0"
+trafilatura = "^2.0.0"
+scrapy = "^2.12.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
