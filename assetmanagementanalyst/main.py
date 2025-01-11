@@ -47,6 +47,8 @@ def init_session_state():
         st.session_state.adv_analyses = {}
     if 'fund_matches' not in st.session_state:
         st.session_state.fund_matches = {}
+    if 'meeting_notes' not in st.session_state:
+        st.session_state.meeting_notes = ""
 
 def clean_content(content) -> dict:
     """Parse the content string into a structured format."""
@@ -249,11 +251,25 @@ def main():
         st.header("Analyze RIA")
 
         # RIA Website Section
-        website_url = st.text_input(
-            "RIA Website", 
-            value="https://www.sandhillglobaladvisors.com/blog/positioning-for-the-future/"
+        website_urls = st.text_area(
+            "RIA Website URLs (one per line)", 
+            value="https://www.sandhillglobaladvisors.com/blog/positioning-for-the-future/",
+            height=100,
+            help="Enter multiple URLs, one per line"
         )
-        analyze_button = st.button("Step 1: Review RIA Website")
+
+        # Meeting Notes Section
+        meeting_notes = st.text_area(
+            "Meeting Notes (optional)",
+            value=st.session_state.meeting_notes,
+            height=150,
+            help="Enter any additional context from client meetings"
+        )
+        st.session_state.meeting_notes = meeting_notes
+
+        # Convert text area input to list of URLs
+        urls = [url.strip() for url in website_urls.split('\n') if url.strip()]
+        analyze_button = st.button("Step 1: Review RIA Info")
 
         # ADV Filing Section
         adv_url = st.text_input(
@@ -261,6 +277,12 @@ def main():
             value="https://adviserinfo.sec.gov/firm/summary/111295"
         )
         analyze_adv_button = st.button("Step 2: Review ADV Filing")
+
+        if st.button("Clear All Analyses"):
+            st.session_state.analyses = {}
+            st.session_state.adv_analyses = {}
+            st.session_state.fund_matches = {}
+            st.rerun()
         
         # Mutual Fund Matching Section
         st.markdown("---")
@@ -288,18 +310,24 @@ def main():
         suggest_funds_button = st.button("Step 3: Suggest Mutual Funds")
 
     # Handle Website Analysis
-    if analyze_button and website_url:
-        with st.spinner("Analyzing website..."):
-            article = scraper.parse_article(website_url)
-            if article and article.content:
-                analysis = analyzer.analyze_content(article.content)
-                st.session_state.analyses[website_url] = {
-                    'article': article,
-                    'analysis': analysis
-                }
-                display_website_analysis(website_url, st.session_state.analyses[website_url])
-            else:
-                st.error("Failed to fetch website content")
+    if analyze_button and (urls or st.session_state.meeting_notes):
+        with st.spinner("Analyzing websites..."):
+            for url in urls:
+                if url not in st.session_state.analyses:
+                    article = scraper.parse_article(url)
+                    if article and article.content:
+                        analysis = analyzer.analyze_content(article.content)
+                        st.session_state.analyses[url] = {
+                            'article': article,
+                            'analysis': analysis
+                        }
+                    else:
+                        st.error(f"Failed to fetch content from: {url}")
+            
+            # Display all analyses
+            for url, data in st.session_state.analyses.items():
+                display_website_analysis(url, data)
+    
 
     # Handle ADV Analysis
     if analyze_adv_button and adv_url:
@@ -325,24 +353,28 @@ def main():
         else:
             try:
                 # Get the latest analyzed data
-                website_data = next(iter(st.session_state.analyses.values()))
                 adv_data = next(iter(st.session_state.adv_analyses.values()))
                 
                 # Prepare RIA data
-                ria_data = {
-                    "website_analysis": {
-                        "investment_themes": website_data['analysis'].investment_themes,
-                        "key_points": website_data['analysis'].key_points,
-                        "summary": website_data['analysis'].summary
-                    },
+                website_data = {
+                    "website_analyses": [
+                        {
+                            "url": url,
+                            "investment_themes": data['analysis'].investment_themes,
+                            "key_points": data['analysis'].key_points,
+                            "summary": data['analysis'].summary
+                        }
+                        for url, data in st.session_state.analyses.items()
+                    ],
                     "aum_summary": adv_data.aum_summary,
-                    "fees_summary": adv_data.fees_summary
+                    "fees_summary": adv_data.fees_summary,
+                    "meeting_notes": st.session_state.meeting_notes if st.session_state.meeting_notes else None
                 }
                 
                 # Get fund matches
                 with st.spinner("Analyzing mutual fund matches..."):
                     fund_matcher = LLMFundMatcher(api_key)
-                    matches = fund_matcher.analyze_matches(ria_data)
+                    matches = fund_matcher.analyze_matches(website_data)
                     st.session_state.fund_matches = matches
                 
                 # Display results in order
@@ -350,7 +382,9 @@ def main():
                 st.markdown("---")
                 display_adv_analysis(adv_data)
                 st.markdown("---")
-                display_website_analysis(website_url, website_data)
+                # Display all website analyses
+                for url, data in st.session_state.analyses.items():
+                    display_website_analysis(url, data)
                 
             except Exception as e:
                 st.error(f"Error generating fund suggestions: {str(e)}")

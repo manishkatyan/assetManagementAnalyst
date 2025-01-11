@@ -84,7 +84,11 @@ class LLMFundMatcher:
         template = """You are an expert investment consultant tasked with matching an RIA to suitable mutual funds.
 
         RIA Information:
-        {ria_data}
+        Website Analyses:
+        {website_analyses}
+
+        ADV Information:
+        {adv_data}
 
         Available Mutual Funds:
         {funds_data}
@@ -152,7 +156,7 @@ class LLMFundMatcher:
             response_dict = json.loads(content)
             return response_dict['matches']
         except Exception as e:
-            print(f"Error parsing LLM response: {e}")
+            print(f"Error parsing LLM response: {str(e)}")
             print(f"Raw response: {result.content}")
             return []
 
