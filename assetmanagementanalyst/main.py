@@ -135,6 +135,12 @@ def display_website_analysis(url: str, data: dict, expanded: bool = True):
         st.write("Summary:")
         st.write(analysis.summary)
 
+        # Add Meeting Notes section
+        if st.session_state.meeting_notes:
+            st.markdown("---")
+            st.subheader("Meeting Notes")
+            st.write(st.session_state.meeting_notes)
+
 def display_adv_analysis(adv_data, expanded: bool = True):
     """Display ADV analysis results in an expander."""
     with st.expander("ADV Analysis Results", expanded=expanded):

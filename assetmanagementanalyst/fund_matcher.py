@@ -3,6 +3,10 @@ from typing import List, Dict
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 import json
+import logging
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MutualFund:
@@ -79,31 +83,61 @@ class LLMFundMatcher:
         ]
 
     def analyze_matches(self, ria_data: dict) -> List[Dict]:
-        """Use LLM to analyze and match RIA with mutual funds."""
+        """Use LLM to analyze and match RIA with mutual funds.
+        
+        Args:
+            ria_data (dict): Dictionary containing RIA information including:
+                - meeting_notes (str, optional): Notes from client meetings
+                - website_analyses (list): List of website analysis results
+                - aum_summary (str): Summary of AUM information
+                - fees_summary (str): Summary of fee structures
+        
+        Returns:
+            List[Dict]: List of fund matches with scores and rationales
+        """
         
         template = """You are an expert investment consultant tasked with matching an RIA to suitable mutual funds.
 
-        RIA Information:
-        Website Analyses:
+        CRITICAL INFORMATION - Meeting Notes:
+        {meeting_notes}
+
+        Additional RIA Information:
+        Website Analysis Summary:
         {website_analyses}
 
-        ADV Information:
+        ADV Summary:
         {adv_data}
 
         Available Mutual Funds:
         {funds_data}
 
-        Analyze the compatibility between the RIA and each fund based on:
-        1. AUM Compatibility (size appropriateness)
-        2. Fee Structure Alignment
-        3. Client Type Match
-        4. Investment Philosophy Alignment
-        5. Operational Fit
+        MATCHING INSTRUCTIONS:
+        1. First, identify any specific preferences or requirements from meeting notes:
+        - Investment preferences or restrictions
+        - Mentioned fund types or strategies
+        - Key personnel relationships
+        - Client-specific needs
+        - Risk tolerance indicators
+        - Fee sensitivity
+
+        2. Then analyze fund compatibility in this priority order:
+        a) Direct alignment with meeting notes preferences (highest weight)
+        b) Investment strategy fit with stated preferences
+        c) AUM and minimum investment compatibility
+        d) Fee structure alignment
+        e) Target client type match
+        f) Investment philosophy alignment
+        g) Operational considerations
 
         For each fund, provide:
-        1. A match score (1-5, where 5 is best)
-        2. Detailed rationale for the score
-        3. Key strengths of the match
+        1. Match score (1-5, where 5 is best)
+        - Score of 5: Perfect alignment with meeting notes and other criteria
+        - Score of 4: Strong alignment with most key preferences
+        - Score of 3: Good general fit but some misalignment
+        - Score of 2: Multiple areas of concern
+        - Score of 1: Significant misalignment
+        2. Detailed rationale (explicitly reference meeting notes where relevant)
+        3. Key strengths (prioritize alignment with meeting notes)
         4. Potential concerns
 
         Return the analysis in the following JSON format, ordered by highest to lowest score:
@@ -119,9 +153,12 @@ class LLMFundMatcher:
             ]
         }}
 
-        Focus on practical business considerations and strategic fit.
-        Ensure scores reflect true compatibility based on all available information.
-        Consider both quantitative factors (AUM, fees) and qualitative aspects (investment philosophy, client focus)."""
+        IMPORTANT GUIDELINES:
+        - Meeting notes represent the most current and direct client input - prioritize this information
+        - If specific funds or strategies were mentioned positively or negatively in meetings, these should heavily influence scores
+        - Consider both explicit preferences and implicit needs from meeting discussions
+        - Use website and ADV data as supporting information only
+        - If no meeting notes are provided, base analysis on website and ADV data"""
 
         # Prepare fund data for prompt
         funds_data = []
@@ -132,19 +169,36 @@ class LLMFundMatcher:
             Attributes: {json.dumps(fund.key_attributes, indent=2)}
             """)
 
+        # Format meeting notes with clear indication if none provided
+        meeting_notes = ria_data.get("meeting_notes")
+        formatted_meeting_notes = (
+            "No meeting notes provided - analysis based on website and ADV data only"
+            if not meeting_notes
+            else f"Meeting Notes:\n{meeting_notes}"
+        )
+
         # Create prompt
         prompt = ChatPromptTemplate.from_template(template)
 
         # Get LLM analysis
         chain = prompt | self.llm
         result = chain.invoke({
-            "ria_data": json.dumps(ria_data, indent=2),
+            "meeting_notes": formatted_meeting_notes,
+            "website_analyses": json.dumps([{
+                "url": analysis["url"],
+                "investment_themes": analysis["investment_themes"],
+                "key_points": analysis["key_points"],
+                "summary": analysis["summary"]
+            } for analysis in ria_data["website_analyses"]], indent=2),
+            "adv_data": json.dumps({
+                "aum_summary": ria_data.get("aum_summary"),
+                "fees_summary": ria_data.get("fees_summary")
+            }, indent=2),
             "funds_data": "\n".join(funds_data)
         })
 
         # Parse LLM response
         try:
-            # Clean the response content
             content = result.content
             # Remove markdown code block indicators if present
             if content.startswith('```'):
@@ -156,8 +210,8 @@ class LLMFundMatcher:
             response_dict = json.loads(content)
             return response_dict['matches']
         except Exception as e:
-            print(f"Error parsing LLM response: {str(e)}")
-            print(f"Raw response: {result.content}")
+            logger.error(f"Error parsing LLM response: {str(e)}")
+            logger.error(f"Raw response: {result.content}")
             return []
 
     def format_results_for_display(self, matches: List[Dict]) -> str:
